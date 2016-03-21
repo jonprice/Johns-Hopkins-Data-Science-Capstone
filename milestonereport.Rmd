@@ -5,7 +5,7 @@ date: "21 March 2016"
 output: html_document
 ---
 
-```{r echo=FALSE, warning=FALSE, }
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 library(tm)   
 library(ggplot2)   
 library(reshape2)
@@ -24,7 +24,7 @@ This report outline some basic exploratory analysis of the document corpus provi
 # Summary Statistics 
 
 
-## Full document summary
+## Full Document Summary
 
 The following table outlines basic summaries of the 3 documents, this includes document size, line and word counts. 
 
@@ -121,7 +121,7 @@ plotWordFreq <- function(dtm){
 
 
 
-## n-gram analasers
+## n-gram Analysis
 
 Before performing document analysis you usually perform operations like stemming, removing punctuation and stop words etc as these words often don't affect the meaning of a sentence. In this project, I'm trying to predict the words that a user wants to type so these words that are normally ignored should still be part of what is predicted. I did preprocess to lower case, this may or may not be applicable for the end prediction product. 
 
@@ -271,8 +271,9 @@ Once I have a basic n-gram based prediction algorithm and testing in place I pla
 * Try training with more recent twitter data
 
 
+# Reproducability
 
-
+This report can be reproducded with the code from https://github.com/jonprice/Johns-Hopkins-Data-Science-Capstone/blob/master/milestonereport.Rmd
 
 
 
