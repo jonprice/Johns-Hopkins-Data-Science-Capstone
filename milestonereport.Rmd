@@ -1,0 +1,286 @@
+---
+title: "Milestone Report For SwiftKey Capstone"
+author: "Jon"
+date: "21 March 2016"
+output: html_document
+---
+
+```{r echo=FALSE, warning=FALSE, }
+library(tm)   
+library(ggplot2)   
+library(reshape2)
+
+
+setwd("~/src/coursera/johnhopkinsdatasciencecapstone")
+```
+
+
+
+# Summary
+
+This report outline some basic exploratory analysis of the document corpus provided for the SwiftKey Predictive text Capstone project. The document corpus is originally from http://www.corpora.heliohost.org/ and consists off 3 documents, consisting of blog posts, twitter posts and news articles. This report and project will use the US English version of the documents. This report will focus on exploratory analyses as it relates to the project goal of generating a predictive text https://en.wikipedia.org/wiki/Predictive_text generator. Additionally this report contains a summary of insight into the planned approach to generate the Predictive text application. 
+
+
+# Summary Statistics 
+
+
+## Full document summary
+
+The following table outlines basic summaries of the 3 documents, this includes document size, line and word counts. 
+
+
+
+```{r cache=TRUE, echo=FALSE}
+
+summary_table <- data.frame(document = c("news", "blogs","twitter"),
+                            num_lines = c(
+                              system(paste("wc -l < final/en_US/en_US.news.txt"), intern=T),
+                              system(paste("wc -l < final/en_US/en_US.blogs.txt"), intern=T),
+                              system(paste("wc -l < final/en_US/en_US.twitter.txt"), intern=T)
+                            ),
+                            num_words = c(
+                              system(paste("wc -w < final/en_US/en_US.news.txt"), intern=T),
+                              system(paste("wc -w < final/en_US/en_US.blogs.txt"), intern=T),
+                              system(paste("wc -w < final/en_US/en_US.twitter.txt"), intern=T)
+                            ),
+                            file_size_bytes = c(
+                              system(paste("wc -c < final/en_US/en_US.news.txt"), intern=T) ,
+                              system(paste("wc -c < final/en_US/en_US.blogs.txt"), intern=T),
+                              system(paste("wc -c < final/en_US/en_US.twitter.txt"), intern=T)
+                            )
+                    )
+
+summary_table
+```
+
+
+
+## Document Sampling for easer processing. 
+
+Due to the total document sizes of over half a gigabyte, the rest of the Summary analysis will be performed on a random subset of each document. Each document will contain 1% of the lines of the original documents. 
+
+
+```{r cache=TRUE, echo=FALSE, warning=FALSE}
+  
+sampleFile <- function(fileLines, percent, name) {
+  subset <- sample(fileLines,   size = length(fileLines) * percent)
+  
+  dir.create(paste("samples" , percent, sep="/"), recursive = TRUE)
+  file.create(paste("samples" , percent , name, sep="/"), recursive = TRUE) 
+  con <- file(paste("samples" , percent , name, sep="/"), "w") 
+  
+  writeLines(subset, con)
+  close(con)
+}
+
+
+loadFile <- function(fileName) {
+  con <- file(fileName, "r") 
+  lines <- readLines(con)
+  close(con)
+  lines
+}
+
+if (!dir.exists("samples")){
+  lines <- loadFile("final/en_US/en_US.twitter.txt")
+  sampleFile(lines, 0.01, "twitter.txt")
+  
+  lines <- loadFile("final/en_US/en_US.blogs.txt")
+  sampleFile(lines, 0.01, "blogs.txt")
+  
+  lines <- loadFile("final/en_US/en_US.news.txt")
+  sampleFile(lines, 0.01, "news.txt")
+}
+
+```
+
+
+```{r cache=TRUE, echo=FALSE, warning=FALSE}
+  
+docs <- Corpus(DirSource("samples/0.01/"))  
+docs <- tm_map(docs, content_transformer(tolower))
+
+plotWordFreq <- function(dtm){
+  df <- as.data.frame(as.matrix(dtm))
+  # and transpose for plotting
+  df <- data.frame(t(df))
+  
+  newdf <- df[order(-df$blogs.txt),] 
+  newdf <- newdf[1:20,]
+  
+  newdf[ "word" ] <- rownames(newdf)
+  newdfLong <- melt( newdf, id.vars="word",  variable_name="doc" )
+  
+  p <- ggplot(newdfLong, aes(x = word,  y = value, fill=variable))    
+  p <- p + geom_bar(stat="identity") 
+  p <- p + theme(axis.text.x=element_text(angle=45, hjust=1))   + ylab("count") +  labs(fill="file")
+  p   
+}
+
+```
+
+
+
+## n-gram analasers
+
+Before performing document analysis you usually perform operations like stemming, removing punctuation and stop words etc as these words often don't affect the meaning of a sentence. In this project, I'm trying to predict the words that a user wants to type so these words that are normally ignored should still be part of what is predicted. I did preprocess to lower case, this may or may not be applicable for the end prediction product. 
+
+### One-gram plot
+
+Plot of One Grams
+
+```{r cache=TRUE, echo=FALSE, warning=FALSE }
+dtm <- DocumentTermMatrix(docs,  control = list() )
+plotWordFreq(dtm)
+```  
+
+### Bi-gram plot 
+
+Plot of Bi-Grams
+
+```{r cache=TRUE, echo=FALSE, warning=FALSE }
+
+BigramTokenizer <- function(x){
+    unlist(lapply(ngrams(words(x), 2), paste, collapse = " "), use.names = FALSE)
+}
+
+
+dtmBigram <- DocumentTermMatrix(docs, control = list(tokenize = BigramTokenizer ))
+           
+plotWordFreq(dtmBigram)
+```  
+
+### Tri-gram plot
+
+Plot of Tri-Grams
+
+```{r cache=TRUE, echo=FALSE, warning=FALSE }
+
+TrigramTokenizer <- function(x){
+  unlist(lapply(ngrams(words(x), 3), paste, collapse = " "), use.names = FALSE)
+}
+
+dtmTrigram <- DocumentTermMatrix(docs, control = list(tokenize = TrigramTokenizer))
+
+plotWordFreq(dtmTrigram)
+```  
+
+
+### Quad-gram plot
+
+Plot of Quad-Grams
+
+```{r cache=TRUE, echo=FALSE, warning=FALSE }
+FourgramTokenizer <- function(x){
+  unlist(lapply(ngrams(words(x), 4), paste, collapse = " "), use.names = FALSE)
+}
+
+dtmFourgram <- DocumentTermMatrix(docs, control = list(tokenize = FourgramTokenizer))
+           
+plotWordFreq(dtmFourgram)
+```  
+
+
+
+## n-gram coverage
+
+```{r cache=TRUE, echo=FALSE, warning=FALSE }
+
+getPercentsRows <- function(dtm) {
+  df <- as.data.frame(as.matrix(dtm))
+  # and transpose for plotting
+  df <- data.frame(t(df))
+  df$totals =df$blogs.txt + df$news.txt + df$twitter.txt
+  df <- df[order(-df$totals),]
+  df$cumsum <- cumsum(df$totals)
+  
+  results <- c(getRow(df, 0.1), 
+            getRow(df, 0.2),
+            getRow(df, 0.3),
+            getRow(df, 0.4),
+            getRow(df, 0.5),
+            getRow(df, 0.6),
+            getRow(df, 0.7),
+            getRow(df, 0.8),
+            getRow(df, 0.9),
+            getRow(df, 1.0))
+   return (results)
+}
+
+getRow <- function(df, percent) {
+  sumTotal <- sum(df$totals)
+  cutoff <-  sumTotal * percent
+
+  for (i in 1:nrow(df)){
+    if (df$cumsum[i] >= cutoff){
+      return (i)
+    }
+  }
+}
+
+
+coverage_table <- data.frame(Percent_Of_Document = c("10%", "20%","30%","40%","50%","60%","70%", "80%","90%","100%"),
+                    one_gram = getPercentsRows(dtm),
+                    bi_gram = getPercentsRows(dtmBigram),
+                    tri_gram = getPercentsRows(dtmTrigram),
+                    quad_gram = getPercentsRows(dtmFourgram)
+)
+coverage_table_pecent <- coverage_table
+coverage_table_pecent$one_gram = round((coverage_table$one_gram / coverage_table$one_gram[nrow(coverage_table)]) * 100, digits = 2)
+coverage_table_pecent$bi_gram = round((coverage_table$bi_gram / coverage_table$bi_gram[nrow(coverage_table)]) * 100, digits = 2)
+coverage_table_pecent$tri_gram = round((coverage_table$tri_gram / coverage_table$tri_gram[nrow(coverage_table)]) * 100, digits = 2)
+coverage_table_pecent$quad_gram = round((coverage_table$quad_gram / coverage_table$quad_gram[nrow(coverage_table)]) * 100, digits = 2)
+
+```
+
+
+The following table shows the number of n-grams requered to cover x percentage of the documents, i.e. 1383 one-grams account for 60% of the words in the document. 
+
+
+```{r cache=TRUE, echo=FALSE, warning=FALSE }
+coverage_table
+```
+
+
+The following table shows the same data as the table above except as percentages, i.e 1.29% of one-grams account for 60% of the words in the document. 
+
+
+
+```{r cache=TRUE, echo=FALSE, warning=FALSE }
+coverage_table_pecent
+```
+
+
+These tables show that for one-grams 80% of the document is represented by approximately 9000 words or just 10% of the total one-grams. When looking at the bi, tri and quad grams a much higher percentage of the n-grams is requered, e.g around 70% in each case to represent 80% of the documents. These number may change as a larger percentage of the documents are sampled. Additional I can see as the n-gram size is increased the total number of n-grams increases, i.e. from 100,000 one-grams to almost 1,000,000 quad grams. 
+
+
+# Prediction Algorithm plans 
+
+To create a prediction algorithm I plan on using n-gram frequency extracted from the document corpus. The n-gram frequencies will be used to predicted the next most likely word/words based on the words the uses is currently typing and the previous words already typed. 
+
+## Testing 
+
+To test the accuracy I plan to write a testing application that simulates the typing of messages from a test set. As the message is simulated the prediction algorithm will generate its suggested output, if the output is correct it will be accepted and the simulation will continue typing the message from the point after the predicted text. The score will be a percentage based on the number of characters typed divided by the total length of the message. For example, a simulated message could be 'I am going to the movies' the testing application could type 'I am' and the prediction would be 'going to the' the testing application would accept this prediction and then continue typing 'movies'. In this case the predicted text length was  12 characters and the total length was 24, so the score would be .50. 
+
+## Ideas to improve performance
+
+Once I have a basic n-gram based prediction algorithm and testing in place I plan to evaluate a few ideas on what may improve the accuracy. This include. 
+
+* Using just the twitter feeds to train on the assumption this best simulates the text I'm trying to predict
+* Trying different models, something like nearest neighbor and Markov chain 
+* Try training with more recent twitter data
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
